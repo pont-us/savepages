@@ -48,19 +48,23 @@ def cli() -> None:
 
 @cli.command()
 @click.option("--delay", "-d", type=int, default=10)
+@click.option("--no-outlinks-for", "-n", type=str, default=None)
 @click.argument("url_list", type=str)
 @click.argument("session_file", type=str, required=False, default=None)
-def save(delay: int, url_list: str, session_file: str) -> None:
+def save(
+    delay: int, no_outlinks_for: str, url_list: str, session_file: str
+) -> None:
     retry_interval = 300
 
     with open(url_list, "r") as fh:
         urls = [line.rstrip() for line in fh]
 
     for url in urls:
-        logger.info(f"Requesting save for {url}")
+        outlinks = no_outlinks_for is None or no_outlinks_for not in url
+        logger.info(f"Requesting save for {url} . outlinks={outlinks}")
         done = False
         while not done:
-            response = make_save_request(url)
+            response = make_save_request(url, outlinks)
             logger.info("Got response: " + response.text)
             jresp = response.json()
             if "job_id" in jresp:
@@ -69,14 +73,15 @@ def save(delay: int, url_list: str, session_file: str) -> None:
                     with open(session_file, "a") as fh:
                         fh.write(response.text + "\n")
                 done = True
+                logger.info(f"Waiting {delay}s before next request.")
+                time.sleep(delay)
             elif jresp.get("status") == "error":
                 if jresp.get("status_ext") == "error:user-session-limit":
-                    logger.warn(
-                        "Session limit reached; "
-                        f"waiting {retry_interval}s to retry."
-                    )
-                    time.sleep(300)
-            time.sleep(delay)
+                    logger.warn("Session limit reached.")
+                else:
+                    logger.warn(f"Unknown error! {response.text}")
+                logger.warn(f"waiting {retry_interval}s to retry.")
+                time.sleep(retry_interval)
 
 
 @cli.command()
@@ -89,12 +94,12 @@ def check(session_file: str):
         print(response["status"] + " " + response["original_url"])
 
 
-def make_save_request(url: str) -> requests.Response:
+def make_save_request(url: str, outlinks: bool) -> requests.Response:
     return requests.post(
         "https://web.archive.org/save",
         data=dict(
             url=url,
-            capture_outlinks="1",
+            capture_outlinks={False: "0", True: "1"}[outlinks],
             skip_first_archive="1",
             if_not_archived_within="3d",
         ),
