@@ -1,0 +1,4 @@
+= savepages
+
+A simple CLI tool to archive web pages using the Internet Archive's
+Save Page Now API. Released under the MIT license.
