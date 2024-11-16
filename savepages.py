@@ -36,9 +36,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 HEADERS = dict(
-    Authorization=(
-        f"LOW {os.environ['IAACCESS']}:{os.environ['IASECRET']}"
-    ),
+    Authorization=(f"LOW {os.environ['IAACCESS']}:{os.environ['IASECRET']}"),
     Accept="application/json",
 )
 
@@ -54,7 +52,7 @@ def cli() -> None:
 @click.argument("session_file", type=str, required=False, default=None)
 def save(delay: int, url_list: str, session_file: str) -> None:
     retry_interval = 300
-    
+
     with open(url_list, "r") as fh:
         urls = [line.rstrip() for line in fh]
 
@@ -100,17 +98,15 @@ def make_save_request(url: str) -> requests.Response:
             skip_first_archive="1",
             if_not_archived_within="3d",
         ),
-        headers=HEADERS
+        headers=HEADERS,
     )
 
 
 def make_status_request(job_id: str) -> requests.Response:
     return requests.post(
         "https://web.archive.org/save/status",
-        data=dict(
-            job_id=job_id,
-        ),
-        headers=HEADERS
+        data=dict(job_id=job_id),
+        headers=HEADERS,
     )
 
 
