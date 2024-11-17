@@ -89,11 +89,8 @@ def save(
 @click.argument("status_file", type=str)
 def check(session_file: str, status_file: str):
     s = requests.Session()
-    retries = urllib3.util.Retry(
-        total=5,
-        backoff_factor=10
-    )
-    s.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
+    retries = urllib3.util.Retry(total=5, backoff_factor=10)
+    s.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
     with open(session_file, "r") as fh:
         records = [json.loads(line) for line in fh]
     for record in records:
