@@ -29,7 +29,7 @@ import time
 
 import click
 import requests
-
+import urllib3.util
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -77,21 +77,34 @@ def save(
                 time.sleep(delay)
             elif jresp.get("status") == "error":
                 if jresp.get("status_ext") == "error:user-session-limit":
-                    logger.warn("Session limit reached.")
+                    logger.warning("Session limit reached.")
                 else:
-                    logger.warn(f"Unknown error! {response.text}")
-                logger.warn(f"waiting {retry_interval}s to retry.")
+                    logger.warning(f"Unknown error! {response.text}")
+                logger.warning(f"waiting {retry_interval}s to retry.")
                 time.sleep(retry_interval)
 
 
 @cli.command()
 @click.argument("session_file", type=str)
-def check(session_file: str):
+@click.argument("status_file", type=str)
+def check(session_file: str, status_file: str):
+    s = requests.Session()
+    retries = urllib3.util.Retry(
+        total=5,
+        backoff_factor=10
+    )
+    s.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
     with open(session_file, "r") as fh:
         records = [json.loads(line) for line in fh]
     for record in records:
+        logger.info(f"Checking {record['url']}")
         response = make_status_request(record["job_id"]).json()
-        print(response["status"] + " " + response["original_url"])
+        with open(status_file, "a") as fh:
+            if response["status"] == "success":
+                fh.write("success " + response["original_url"] + "\n")
+            else:
+                fh.write(response["status"] + " " + record["url"] + "\n")
+        time.sleep(30)
 
 
 def make_save_request(url: str, outlinks: bool) -> requests.Response:
