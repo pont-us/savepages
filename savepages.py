@@ -95,13 +95,16 @@ def check(session_file: str, status_file: str):
         records = [json.loads(line) for line in fh]
     for record in records:
         logger.info(f"Checking {record['url']}")
-        response = make_status_request(record["job_id"]).json()
-        with open(status_file, "a") as fh:
-            if response["status"] == "success":
-                fh.write("success " + response["original_url"] + "\n")
-            else:
-                fh.write(response["status"] + " " + record["url"] + "\n")
-        time.sleep(30)
+        if record["job_id"] is None:
+            fh.write(str(record) + "\n")
+        else:
+            response = make_status_request(record["job_id"]).json()
+            with open(status_file, "a") as fh:
+                if response["status"] == "success":
+                    fh.write("success " + response["original_url"] + "\n")
+                else:
+                    fh.write(response["status"] + " " + record["url"] + "\n")
+            time.sleep(30)
 
 
 def make_save_request(url: str, outlinks: bool) -> requests.Response:
