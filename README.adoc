@@ -1,4 +1,26 @@
 = savepages
 
+By Pontus Lurcock (pont -at- talvi -dot- net), 2024
+
 A simple CLI tool to archive web pages using the Internet Archive's
-Save Page Now API. Released under the MIT license.
+Save Page Now API. Released under the MIT license. `savepages` is a fairly
+quick and dirty tool written for my own use, and is neither very robust
+nor very user-friendly.
+
+`savepages` has three subcommands:
+
+- `available` takes a file containing a list of URLs, checks whether they have
+  been archived recently, and writes results to standard output.
+- `save` takes a file containing a list of URLs, tries to archive them, and
+  writes details of the resulting sessions to a specified file.
+- `check` takes a file containing session details and reports the status of
+  those sessions.
+
+Notes:
+
+- Session IDs only remain valid for a short time after archiving. Invalid
+  session IDs are reported by the API as "pending".
+- The availability API often incorrectly reports that a URL has not been
+  archived when in reality it has. Sometimes retrying helps.
+- `savepages` hard-codes some delays between API calls to avoid being blocked
+  by rate limits.
