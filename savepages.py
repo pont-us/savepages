@@ -21,11 +21,13 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import datetime
 import json
 import logging
 import os
-import sys
 import time
+from os import times
+from typing import Optional
 
 import click
 import requests
@@ -36,7 +38,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 HEADERS = dict(
-    Authorization=(f"LOW {os.environ['IAACCESS']}:{os.environ['IASECRET']}"),
+    Authorization=(
+        f"LOW {os.environ.get('IAACCESS')}:{os.environ.get('IASECRET')}"
+    ),
     Accept="application/json",
 )
 
@@ -56,10 +60,7 @@ def save(
 ) -> None:
     retry_interval = 300
 
-    with open(url_list, "r") as fh:
-        urls = [line.rstrip() for line in fh]
-
-    for url in urls:
+    for url in read_urls(url_list):
         outlinks = no_outlinks_for is None or no_outlinks_for not in url
         logger.info(f"Requesting save for {url} . outlinks={outlinks}")
         done = False
@@ -107,6 +108,28 @@ def check(session_file: str, status_file: str):
             time.sleep(30)
 
 
+@cli.command()
+@click.argument("url-list", type=str)
+def available(url_list: str):
+    limit = datetime.timedelta(days=30)
+    for url in read_urls(url_list):
+        how_long_ago = parse_availability(make_availability_request(url).json())
+        if how_long_ago is None:
+            status = "!!!"
+        elif how_long_ago > limit:
+            status = "!  "
+        else:
+            status = "   "
+        print(status, url, how_long_ago, flush=True)
+        time.sleep(10)
+
+
+def read_urls(url_list):
+    with open(url_list, "r") as fh:
+        urls = [line.rstrip() for line in fh]
+    return urls
+
+
 def make_save_request(url: str, outlinks: bool) -> requests.Response:
     return requests.post(
         "https://web.archive.org/save",
@@ -126,6 +149,30 @@ def make_status_request(job_id: str) -> requests.Response:
         data=dict(job_id=job_id),
         headers=HEADERS,
     )
+
+
+def make_availability_request(url: str) -> requests.Response:
+    return requests.get(
+        "https://archive.org/wayback/available",
+        params=dict(url=url),
+        headers=dict(Accept="application/json"),
+    )
+
+
+def parse_availability(response: dict) -> Optional[datetime.timedelta]:
+    timestamp = (
+        response.get("archived_snapshots", {})
+        .get("closest", {})
+        .get("timestamp")
+    )
+    if timestamp is None:
+        return None
+    else:
+        return datetime.datetime.now(
+            tz=datetime.timezone.utc
+        ) - datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S").replace(
+            tzinfo=datetime.timezone.utc
+        )
 
 
 if __name__ == "__main__":
